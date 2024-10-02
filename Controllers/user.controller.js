@@ -3,14 +3,33 @@ const userAbsensi = require("../Models/user.absensi.model");
 const Cryptr = require("cryptr");
 const cryptr = new Cryptr(process.env.Key);
 const { JWTCreate, JWTCheck, getUserData } = require("../Controllers/JWT");
+var ObjectId = require("mongodb").ObjectId;
 
 // convert time
-function convertTime(date, offset) {
-  if (offset) {
-    offset = parseFloat(offset);
-  } else {
-    offset = 0;
-  }
+function convertTZ(date, tzString) {
+  return date.toLocaleString("en-US", { timeZone: tzString });
+}
+
+function getCurrentDateTimeInUTC7() {
+  // Create a Date object for the current UTC date/time
+  const utcDate = new Date();
+
+  // Add 7 hours to convert it to UTC+7
+  const utcPlus7 = new Date(utcDate.getTime() + 7 * 60 * 60 * 1000);
+
+  // Return the Date object, which MongoDB will store as ISODate
+  return utcPlus7;
+}
+
+function convertDateTimeInUTC7(date) {
+  // Create a Date object for the current UTC date/time
+  const utcDate = new Date(date);
+
+  // Add 7 hours to convert it to UTC+7
+  const utcPlus7 = new Date(utcDate.getTime() + 7 * 60 * 60 * 1000);
+
+  // Return the Date object, which MongoDB will store as ISODate
+  return utcPlus7;
 }
 
 module.exports = {
@@ -30,6 +49,7 @@ module.exports = {
         uid: userData._id,
         name: userData.name,
         email: userData.email,
+        role: userData.role,
       });
 
       if (password !== cryptr.decrypt(userData.password)) {
@@ -41,11 +61,12 @@ module.exports = {
         res.send({
           message: "Login berhasil",
           status: 200,
-          token: tokenData,
+          token: "Bearer " + tokenData,
           userData: {
             uid: userData._id,
             name: userData.name,
             email: userData.email,
+            role: userData.role,
           },
         });
       }
@@ -55,95 +76,172 @@ module.exports = {
   register: async (req, res) => {
     const { name, email, role, phone, password, ktpNumber, ktpPhoto } =
       req.body;
-    const userData = await User.findOne({ email: email });
-    let file;
-    if (ktpPhoto) {
-      file = "";
+
+    const auth = req.headers.authorization;
+    const token = auth.split(" ")[1];
+
+    const userAuth = getUserData(token);
+
+    if (userAuth.role === 101) {
+      const userData = await User.findOne({ email: email });
+      let file;
+      if (ktpPhoto) {
+        file = "";
+      } else {
+        file = req.file;
+      }
+
+      let ImgURL;
+      if (req.file) {
+        ImgURL =
+          req.protocol + "://" + req.get("host") + "/CardID/" + file.filename;
+      }
+
+      if (userData) {
+        res.send({
+          message: "Email sudah terdaftar",
+          status: 400,
+        });
+      } else {
+        await User.insertMany({
+          name: name,
+          email: email,
+          role: role,
+          phone: phone,
+          password: cryptr.encrypt(password),
+          ktpNumber: ktpNumber,
+          ktpPhoto: req.file ? ImgURL : null,
+          created_by: userAuth.uid,
+          created_at: getCurrentDateTimeInUTC7(),
+        })
+          .then((result) => {
+            res.send({
+              message: "Registrasi berhasil",
+              status: 200,
+              data: result,
+            });
+          })
+          .catch((err) => {
+            console.log(err);
+          });
+      }
     } else {
-      file = req.file;
-    }
-
-    let ImgURL;
-    if (req.file) {
-      ImgURL =
-        req.protocol + "://" + req.get("host") + "/CardID/" + file.filename;
-    }
-
-    if (userData) {
       res.send({
-        message: "Email sudah terdaftar",
+        message: "Authentication Failed",
         status: 400,
       });
-    } else {
-      await User.insertMany({
-        name: name,
-        email: email,
-        role: role,
-        phone: phone,
-        password: cryptr.encrypt(password),
-        ktpNumber: ktpNumber,
-        ktpPhoto: req.file ? ImgURL : null,
-        date: new Date(),
-      })
-        .then((result) => {
-          res.send({
-            message: "Registrasi berhasil",
-            status: 200,
-            data: result,
-          });
-        })
-        .catch((err) => {
-          console.log(err);
-        });
     }
   },
 
   updateUser: async (req, res) => {
-    const { email, uid, name, role, phone, password, ktpNumber } = req.body;
+    const { email, name, role, phone, password, ktpNumber } = req.body;
 
-    const userData = await User.findOne({ email: email } || { uid: uid });
+    const auth = req.headers.authorization;
+    const token = auth.split(" ")[1];
 
-    if (userData) {
-      await User.updateMany({
-        name: name !== null ? name : userData.name,
-        role: role !== null ? role : userData.role,
-        phone: phone !== null ? phone : userData.phone,
-        password:
-          password !== null ? cryptr.encrypt(password) : userData.password,
-        ktpNumber: ktpNumber !== null ? ktpNumber : userData.ktpNumber,
-      })
-        .then((result) => {
-          res.send({
-            message: "Update data berhasil",
-            status: 200,
-            data: result,
+    const userAuth = getUserData(token);
+
+    if (userAuth.role === 101) {
+      const userData = await User.findOne({ email: email });
+
+      if (userData) {
+        await User.updateMany(
+          {
+            email: email,
+          },
+          {
+            $set: {
+              name: name,
+              role: role,
+              phone: phone,
+              password: cryptr.encrypt(password),
+              ktpNumber: ktpNumber,
+              updated_by: userAuth.uid,
+              updated_at: getCurrentDateTimeInUTC7(),
+            },
+          }
+        )
+          .then((result) => {
+            res.send({
+              message: "Update data berhasil",
+              status: 200,
+              data: result,
+            });
+          })
+          .catch((err) => {
+            console.log(err);
           });
-        })
-        .catch((err) => {
-          console.log(err);
+      } else {
+        res.send({
+          message: "Update data gagal",
+          status: 400,
         });
+      }
     } else {
       res.send({
-        message: "Update data gagal",
+        message: "Authentication Failed",
         status: 400,
       });
     }
   },
 
   userAbsensi: async (req, res) => {
-    const { email, uid, status } = req.body;
-    const userData = await User.findOne({ uid: uid });
+    const { uid, status, date } = req.body;
 
-    if (userData) {
-      await userAbsensi
-        .insertMany({
-          uid: uid,
-          date: convertTime(new Date(), +7),
-          status: status,
-        })
+    const auth = req.headers.authorization;
+    const token = auth.split(" ")[1];
+
+    const userAuth = getUserData(token);
+
+    if (userAuth.role === 101 || userAuth.role === 102) {
+      const userData = await User.findOne({ _id: uid });
+
+      if (userData) {
+        await userAbsensi
+          .insertMany({
+            uid: userData._id,
+            date: convertDateTimeInUTC7(date),
+            status: status,
+            is_paid: 0,
+            created_by: userAuth.uid,
+            created_at: getCurrentDateTimeInUTC7(),
+          })
+          .then((result) => {
+            res.send({
+              message: "Absensi berhasil",
+              status: 200,
+              data: result,
+              uiduser: userAuth,
+            });
+          })
+          .catch((err) => {
+            console.log(err);
+          });
+      } else {
+        res.send({
+          message: "Absensi gagal",
+          status: 400,
+        });
+      }
+    } else {
+      res.send({
+        message: "Authentication Failed",
+        status: 400,
+      });
+    }
+  },
+
+  getUsers: async (req, res) => {
+    const auth = req.headers.authorization;
+    const token = auth.split(" ")[1];
+
+    const userAuth = getUserData(token);
+
+    if (userAuth.role === 101 || userAuth.role === 102) {
+      await User.find()
         .then((result) => {
           res.send({
-            message: "Absensi berhasil",
+            message: "Data ditemukan",
             status: 200,
             data: result,
           });
@@ -151,11 +249,30 @@ module.exports = {
         .catch((err) => {
           console.log(err);
         });
-    } else {
-      res.send({
-        message: "Absensi gagal",
-        status: 400,
-      });
+    }
+  },
+
+  getUserDetails: async (req, res) => {
+    const auth = req.headers.authorization;
+    const token = auth.split(" ")[1];
+
+    const userAuth = getUserData(token);
+
+    if (userAuth.role === 101 || userAuth.role === 102) {
+      const userID = req.params.userID;
+      const o_userID = new ObjectId(userID);
+
+      await User.findOne({ _id: o_userID })
+        .then((result) => {
+          res.send({
+            message: "Data ditemukan",
+            status: 200,
+            data: result,
+          });
+        })
+        .catch((err) => {
+          console.log(err);
+        });
     }
   },
 };

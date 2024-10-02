@@ -1,53 +1,33 @@
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
-const User = mongoose.model("user", {
+const userAbsensi = mongoose.model("Machinery", {
   name: {
     type: String,
     required: false,
   },
-  email: {
+  type: {
     type: String,
     required: false,
   },
-  role: {
-    type: Number,
-    required: false,
-  },
-  phone: {
+  model: {
     type: String,
     required: false,
   },
-  password: {
+  is_Own: {
+    type: Boolean,
+    required: false,
+  },
+  vendorName: {
     type: String,
     required: false,
   },
-  confirmPassword: {
+  vendorPhoneNumber: {
     type: String,
     required: false,
   },
-  ktpNumber: {
-    type: String,
-    required: false,
-  },
-  ktpPhoto: {
-    type: String,
-    required: false,
-  },
-  bankName: {
-    type: String,
-    required: false,
-  },
-  bankNumber: {
-    type: String,
-    required: false,
-  },
-  dailySalary: {
-    type: String,
-    required: false,
-  },
-  monthlySalary: {
-    type: String,
+  rentStartDate: {
+    type: Date,
     required: false,
   },
   updated_by: {
@@ -68,4 +48,4 @@ const User = mongoose.model("user", {
   },
 });
 
-module.exports = User;
+module.exports = userAbsensi;

@@ -46,5 +46,7 @@ router.post(
 router.post("/login", userController.login);
 router.put("/update-data", userController.updateUser);
 router.post("/user-absensi", userController.userAbsensi);
+router.get("/all-users", userController.getUsers);
+router.get("/detail/:userID", userController.getUserDetails);
 
 module.exports = router;

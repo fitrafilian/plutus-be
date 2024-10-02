@@ -14,6 +14,18 @@ const userAbsensi = mongoose.model("user_absensi", {
     type: String,
     required: false,
   },
+  is_paid: {
+    type: String,
+    required: false,
+  },
+  created_by: {
+    type: Schema.Types.ObjectId,
+    required: false,
+  },
+  created_at: {
+    type: Date,
+    required: false,
+  },
 });
 
 module.exports = userAbsensi;

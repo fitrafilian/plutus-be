@@ -29,7 +29,9 @@ app.use(express.static(path.join(__dirname, "public")));
 
 // router user api
 const userAPI = require("./Routers/user.router");
+const machineAPI = require("./Routers/machine.router");
 app.use("/api/user", userAPI);
+app.use("/api/machinery", machineAPI);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`listening from PORT ${PORT}`));
