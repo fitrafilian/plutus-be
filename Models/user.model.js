@@ -26,6 +26,10 @@ const User = mongoose.model("user", {
     type: String,
     required: false,
   },
+  photo: {
+    type: String,
+    required: false,
+  },
   ktpNumber: {
     type: String,
     required: false,

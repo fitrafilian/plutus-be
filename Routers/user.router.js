@@ -37,6 +37,25 @@ const storageCardID = multer.diskStorage({
 
 const uploadCardID = multer({ storage: storageCardID });
 
+// lokasi upload Photo
+const storagePhoto = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, "./Public/Photo");
+  },
+  filename: function (req, file, cb) {
+    cb(
+      null,
+      "photo." +
+        req.body.ktpNumber +
+        "-" +
+        makeid(25) +
+        path.extname(file.originalname)
+    );
+  },
+});
+
+const uploadPhoto = multer({ storage: storagePhoto });
+
 router.get("/test", userController.test);
 router.post(
   "/register",
@@ -44,7 +63,11 @@ router.post(
   userController.register
 );
 router.post("/login", userController.login);
-router.put("/update-data", userController.updateUser);
+router.put(
+  "/update-data",
+  uploadPhoto.single("photo"),
+  userController.updateUser
+);
 router.post("/user-absensi", userController.userAbsensi);
 router.get("/all-users", userController.getUsers);
 router.get("/detail/:userID", userController.getUserDetails);

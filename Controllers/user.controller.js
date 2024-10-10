@@ -134,12 +134,25 @@ module.exports = {
   },
 
   updateUser: async (req, res) => {
-    const { email, name, role, phone, password, ktpNumber } = req.body;
+    const { email, name, role, phone, password, ktpNumber, photo } = req.body;
 
     const auth = req.headers.authorization;
     const token = auth.split(" ")[1];
 
     const userAuth = getUserData(token);
+
+    let file;
+    if (photo) {
+      file = "";
+    } else {
+      file = req.file;
+    }
+
+    let ImgURL;
+    if (req.file) {
+      ImgURL =
+        req.protocol + "://" + req.get("host") + "/Photo/" + file.filename;
+    }
 
     if (userAuth.role === 101) {
       const userData = await User.findOne({ email: email });
@@ -158,6 +171,7 @@ module.exports = {
               ktpNumber: ktpNumber,
               updated_by: userAuth.uid,
               updated_at: getCurrentDateTimeInUTC7(),
+              photo: req.file ? ImgURL : null,
             },
           }
         )
